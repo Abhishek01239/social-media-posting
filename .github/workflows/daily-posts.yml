@@ -1,0 +1,33 @@
+name: Daily product posts
+on:
+  schedule:
+    - cron: "30 4,8,12 * * *"   # 10:00, 14:00, 18:00 IST
+  workflow_dispatch: {}          # manual Run button
+
+concurrency:
+  group: daily-posts
+  cancel-in-progress: false
+
+jobs:
+  post:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      CLOUDINARY_API_KEY: ${{ secrets.CLOUDINARY_API_KEY }}
+      CLOUDINARY_API_SECRET: ${{ secrets.CLOUDINARY_API_SECRET }}
+      CLOUDINARY_CLOUD_NAME: tdidszty
+      SUPABASE_URL: https://xfwhmvhremsljuebxmik.supabase.co
+      SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+      SITE_URL: https://smartgearpicks.manavvalani.in
+      ZERNIO_API_KEY: ${{ secrets.ZERNIO_API_KEY }}
+      ZERNIO_BLUESKY_ACCOUNT_ID: 6accfc310d76244f24eef153
+      ZERNIO_PINTEREST_ACCOUNT_ID: 6accf9c29c542a7e88da6e9c
+      PRODUCTS_PER_RUN: "1"
+      DAILY_CAP: "20"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - run: npm install --no-save cloudinary@2 @supabase/supabase-js@2
+      - run: node scripts/post-product.mjs
