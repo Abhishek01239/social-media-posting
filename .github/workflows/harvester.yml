@@ -1,0 +1,27 @@
+name: AI image harvester
+on:
+  schedule:
+    - cron: "*/15 * * * *"       # every 15 minutes
+  workflow_dispatch: {}
+
+concurrency:
+  group: harvester
+  cancel-in-progress: false
+
+jobs:
+  harvest:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      CLOUDINARY_API_KEY: ${{ secrets.CLOUDINARY_API_KEY }}
+      CLOUDINARY_API_SECRET: ${{ secrets.CLOUDINARY_API_SECRET }}
+      CLOUDINARY_CLOUD_NAME: tdidszty
+      SUPABASE_URL: https://xfwhmvhremsljuebxmik.supabase.co
+      SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - run: npm install --no-save cloudinary@2 @supabase/supabase-js@2 puppeteer
+      - run: node scripts/harvest-images.mjs
