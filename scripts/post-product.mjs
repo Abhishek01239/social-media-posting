@@ -4,6 +4,8 @@
 // price, composes a 1000x1500 SVG ad, rasterizes + materializes it on
 // Cloudinary, posts to Bluesky AND Pinterest via the Zernio API, and only then
 // logs the item as used in Supabase "creatives".
+// NOTE: affiliate display names / public_ids are bare numbers like "67"
+// (no extension) - parse digits, do not require a file extension.
 import crypto from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { v2 as cloudinary } from 'cloudinary';
@@ -47,12 +49,14 @@ if (made >= DAILY_CAP) { console.log(`Daily cap reached (${made}). Exiting.`); p
 const budget = Math.min(PER_RUN, DAILY_CAP - made);
 for (let i = 0; i < budget; i++) {
 
-// 2. Next unused product: descending item number from affiliate folder
+// 2. Next unused product: descending item number from affiliate folder.
+// Item number = digits found anywhere in the display name or public_id.
 const q = await cloudinary.search.expression('asset_folder:affiliate').max_results(200).execute();
 const products = q.resources
-  .map(r => ({ r, n: parseInt((r.display_name || r.public_id).match(/(\d+)\.(png|jpe?g)$/i)?.[1] ?? 'NaN', 10) }))
+  .map(r => ({ r, n: parseInt(String(r.display_name || r.public_id).match(/\d+/)?.[0] ?? 'NaN', 10) }))
   .filter(p => !Number.isNaN(p.n))
   .sort((a, b) => b.n - a.n);
+console.log(`Affiliate assets found: ${q.resources.length}, with valid item numbers: ${products.length}. Highest: ${products[0]?.n}.`);
 const { data: usedRows } = await supabase.from('creatives').select('item');
 const used = new Set((usedRows || []).map(r => String(r.item)));
 const next = products.find(p => !used.has(String(p.n)) && !SKIP_ITEMS.has(p.n));
