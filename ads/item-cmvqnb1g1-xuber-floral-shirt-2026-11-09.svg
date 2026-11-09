@@ -1,0 +1,44 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1000" height="1500" viewBox="0 0 1000 1500">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#0E2A3B"/>
+      <stop offset="0.55" stop-color="#155263"/>
+      <stop offset="1" stop-color="#1E7A8C"/>
+    </linearGradient>
+    <radialGradient id="stage" cx="0.5" cy="0.5" r="0.5">
+      <stop offset="0" stop-color="#FFFFFF" stop-opacity="0.95"/>
+      <stop offset="0.7" stop-color="#BFE6EE" stop-opacity="0.45"/>
+      <stop offset="1" stop-color="#BFE6EE" stop-opacity="0"/>
+    </radialGradient>
+    <filter id="soft" x="-40%" y="-40%" width="180%" height="180%">
+      <feGaussianBlur stdDeviation="28"/>
+    </filter>
+    <filter id="shadow" x="-40%" y="-40%" width="180%" height="180%">
+      <feDropShadow dx="0" dy="26" stdDeviation="26" flood-color="#04141D" flood-opacity="0.55"/>
+    </filter>
+  </defs>
+  <rect width="1000" height="1500" fill="url(#bg)"/>
+  <circle cx="880" cy="240" r="180" fill="#3FB3C7" opacity="0.35" filter="url(#soft)"/>
+  <circle cx="90" cy="1280" r="200" fill="#0A3444" opacity="0.6" filter="url(#soft)"/>
+  <circle cx="500" cy="830" r="330" fill="none" stroke="#9FE0EA" stroke-opacity="0.35" stroke-width="2"/>
+  <text x="500" y="120" text-anchor="middle" font-family="Georgia, 'Times New Roman', serif" font-size="30" letter-spacing="14" fill="#BFE6EE">SMARTGEARPICKS</text>
+  <line x1="300" y1="150" x2="700" y2="150" stroke="#BFE6EE" stroke-opacity="0.5" stroke-width="1"/>
+  <text x="500" y="260" text-anchor="middle" font-family="Georgia, 'Times New Roman', serif" font-size="88" font-weight="bold" fill="#FFFFFF">Xübér</text>
+  <text x="500" y="330" text-anchor="middle" font-family="Georgia, 'Times New Roman', serif" font-size="44" letter-spacing="6" fill="#D9F2F6">MEN'S FLORAL SHIRT</text>
+  <ellipse cx="500" cy="850" rx="360" ry="300" fill="url(#stage)"/>
+  <ellipse cx="500" cy="1235" rx="250" ry="34" fill="#04141D" opacity="0.45" filter="url(#soft)"/>
+  <image href="https://res.cloudinary.com/tdidszty/image/upload/v1794226780/item-cmvqnb1g1-2026-11-09-photo.jpg" x="250" y="460" width="500" height="750" filter="url(#shadow)"/>
+  <circle cx="855" cy="470" r="88" fill="#E8B34B"/>
+  <text x="855" y="458" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="26" letter-spacing="2" fill="#3B2B05">ONLY</text>
+  <text x="855" y="502" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="40" font-weight="bold" fill="#3B2B05">Rs.749</text>
+  <text x="855" y="596" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="30" font-weight="bold" fill="#F4D98C">56% OFF</text>
+  <rect x="45" y="1265" width="290" height="64" rx="32" fill="#FFFFFF" opacity="0.12"/>
+  <text x="190" y="1306" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="26" font-weight="bold" fill="#FFFFFF">NAVY FLORAL PRINT</text>
+  <rect x="355" y="1265" width="290" height="64" rx="32" fill="#FFFFFF" opacity="0.12"/>
+  <text x="500" y="1306" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="26" font-weight="bold" fill="#FFFFFF">COTTON BLEND</text>
+  <rect x="665" y="1265" width="290" height="64" rx="32" fill="#FFFFFF" opacity="0.12"/>
+  <text x="810" y="1306" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="26" font-weight="bold" fill="#FFFFFF">FULL SLEEVE</text>
+  <rect x="330" y="1380" width="340" height="76" rx="38" fill="#E8B34B"/>
+  <text x="500" y="1430" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="32" font-weight="bold" letter-spacing="6" fill="#3B2B05">SHOP NOW</text>
+  <text x="500" y="1490" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="20" letter-spacing="3" fill="#BFE6EE">smartgearpicks.manavvalani.in</text>
+</svg>
