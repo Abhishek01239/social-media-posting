@@ -1,0 +1,46 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1000" height="1500" viewBox="0 0 1000 1500">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#F7EBDC"/>
+      <stop offset="0.55" stop-color="#EFD3B4"/>
+      <stop offset="1" stop-color="#E0A878"/>
+    </linearGradient>
+    <linearGradient id="pill" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#B4552D"/>
+      <stop offset="1" stop-color="#D07B3F"/>
+    </linearGradient>
+  </defs>
+  <rect width="1000" height="1500" fill="url(#bg)"/>
+  <circle cx="920" cy="140" r="180" fill="#E8B98F" opacity="0.5"/>
+  <circle cx="60" cy="1380" r="220" fill="#E8B98F" opacity="0.45"/>
+  <circle cx="80" cy="220" r="10" fill="#B4552D" opacity="0.6"/>
+  <circle cx="120" cy="180" r="6" fill="#B4552D" opacity="0.4"/>
+
+  <text x="500" y="96" text-anchor="middle" font-family="Arial" font-size="30" letter-spacing="10" fill="#7A4322">S M A R T G E A R P I C K S</text>
+  <line x1="330" y1="122" x2="670" y2="122" stroke="#B4552D" stroke-width="2"/>
+
+  <text x="72" y="250" font-family="Georgia" font-size="78" fill="#3E2412">Minimalist</text>
+  <text x="72" y="340" font-family="Georgia" font-size="78" fill="#3E2412">2% Salicylic Acid</text>
+  <text x="72" y="430" font-family="Georgia" font-size="78" fill="#B4552D">Serum 30 ml</text>
+  <text x="72" y="490" font-family="Arial" font-size="34" fill="#6B4426">Single-ingredient BHA for clearer skin</text>
+
+  <g font-family="Arial" font-size="27" fill="#5A3517">
+    <rect x="72" y="530" width="360" height="58" rx="29" fill="#FFFFFF" opacity="0.85"/>
+    <text x="252" y="569" text-anchor="middle">Unclogs blackheads</text>
+    <rect x="452" y="530" width="440" height="58" rx="29" fill="#FFFFFF" opacity="0.85"/>
+    <text x="672" y="569" text-anchor="middle">Clears oily T-zone texture</text>
+    <rect x="72" y="606" width="470" height="58" rx="29" fill="#FFFFFF" opacity="0.85"/>
+    <text x="307" y="645" text-anchor="middle">Short gentle ingredient list</text>
+  </g>
+
+  <rect x="150" y="700" width="700" height="560" rx="36" fill="#FFFFFF" opacity="0.96"/>
+  <image href="https://res.cloudinary.com/dfstxjuyq/image/upload/v1793248780/store-products/vathqzrsqiy0llgjlyoe.png" x="210" y="740" width="580" height="480" preserveAspectRatio="xMidYMid meet"/>
+
+  <rect x="72" y="1310" width="380" height="100" rx="20" fill="#3E2412"/>
+  <text x="92" y="1360" font-family="Arial" font-size="30" fill="#F7EBDC">Estimated price</text>
+  <text x="92" y="1392" font-family="Arial" font-size="26" fill="#EFD3B4">Rs.493</text>
+  <rect x="500" y="1310" width="428" height="100" rx="20" fill="url(#pill)"/>
+  <text x="714" y="1374" text-anchor="middle" font-family="Arial" font-size="38" font-weight="bold" fill="#FFFFFF">SHOP NOW</text>
+
+  <text x="500" y="1466" text-anchor="middle" font-family="Arial" font-size="28" fill="#7A4322">smartgearpicks.manavvalani.in</text>
+</svg>
