@@ -36,10 +36,6 @@ Cloud name and the Zernio account IDs are already hardcoded in the workflow env.
 
 Duplicates are blocked per platform with Zernio's `externalId` (`pin-<videoId>`, `fb-<videoId>`). A platform that isn't connected is skipped. Standard-library Python only (`scripts/youtube_to_pinterest.py`).
 
-This uses a **separate** Zernio account (the one with the Minecraft Pinterest and the Facebook Page connected), not the SmartGearPicks one above:
-
-| Secret | Value |
-|---|---|
-| ZERNIO_PINTEREST_KEY | API key of the Zernio account that has the Minecraft Pinterest and Facebook Page connected |
+It reads the key from the repo secret **ZERNIO_API_KEY**, which now holds the API key of the Zernio account with the Minecraft Pinterest and Facebook Page connected. Note: the SmartGearPicks workflow above reads the same secret with its own hardcoded account IDs, so it will fail unless those accounts are in this Zernio account too.
 
 Change the board, channel, platforms (`PLATFORMS`), age window or uploads per run in the workflow `env`. Test without posting by running the script locally with `DRY_RUN=1`.
