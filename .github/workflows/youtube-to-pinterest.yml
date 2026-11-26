@@ -1,4 +1,4 @@
-name: YouTube to Pinterest (Galaxy Of Games AR)
+name: YouTube to Pinterest + Facebook (Galaxy Of Games AR)
 on:
   schedule:
     - cron: "17 */3 * * *"   # every 3 hours
@@ -16,6 +16,7 @@ jobs:
       ZERNIO_PINTEREST_KEY: ${{ secrets.ZERNIO_PINTEREST_KEY }}
       YT_CHANNEL_ID: UCppjXBahPLC3G_5ZcP6t0RA
       PINTEREST_BOARD_NAME: MINECRAFT
+      PLATFORMS: pinterest,facebook
       MAX_AGE_HOURS: "72"
       MAX_PINS_PER_RUN: "4"
     steps:

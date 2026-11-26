@@ -29,13 +29,17 @@ Cloud name and the Zernio account IDs are already hardcoded in the workflow env.
 3. Verify the post on Bluesky/Pinterest, and check Zernio's failed-posts list (Zernio can return an id yet the post can still fail if the caption is over the limit).
 4. After the first green run, pause the three Littlebird routines so nothing double-posts.
 
-## YouTube to Pinterest (Galaxy Of Games AR)
-`.github/workflows/youtube-to-pinterest.yml` runs every 3 hours (plus a manual Run button). It reads the Galaxy Of Games AR YouTube RSS feed and pins every new Short and video (last 72 h) to the **MINECRAFT** Pinterest board: YouTube thumbnail + title + link back to the video. Duplicates are blocked with Zernio's `externalId` (`yt-<videoId>`). Standard-library Python only (`scripts/youtube_to_pinterest.py`).
+## YouTube to Pinterest + Facebook (Galaxy Of Games AR)
+`.github/workflows/youtube-to-pinterest.yml` runs every 3 hours (plus a manual Run button). It reads the Galaxy Of Games AR YouTube RSS feed and, for every new Short and video (last 72 h):
+- **Pinterest:** pins it to the **MINECRAFT** board (YouTube thumbnail + title + link back to the video).
+- **Facebook:** posts it on the connected Facebook Page (caption + YouTube link, which Facebook shows as a video preview card).
 
-This uses a **separate** Zernio account (the one with the Minecraft Pinterest connected), not the SmartGearPicks one above:
+Duplicates are blocked per platform with Zernio's `externalId` (`pin-<videoId>`, `fb-<videoId>`). A platform that isn't connected is skipped. Standard-library Python only (`scripts/youtube_to_pinterest.py`).
+
+This uses a **separate** Zernio account (the one with the Minecraft Pinterest and the Facebook Page connected), not the SmartGearPicks one above:
 
 | Secret | Value |
 |---|---|
-| ZERNIO_PINTEREST_KEY | API key of the Zernio account that has the Minecraft Pinterest connected |
+| ZERNIO_PINTEREST_KEY | API key of the Zernio account that has the Minecraft Pinterest and Facebook Page connected |
 
-Change the board, channel, age window or pins per run in the workflow `env`. Test without posting by running the script locally with `DRY_RUN=1`.
+Change the board, channel, platforms (`PLATFORMS`), age window or uploads per run in the workflow `env`. Test without posting by running the script locally with `DRY_RUN=1`.

@@ -1,18 +1,22 @@
 #!/usr/bin/env python3
-"""Pin new Galaxy Of Games AR YouTube uploads (Shorts + videos) to Pinterest via Zernio.
+"""Share new Galaxy Of Games AR YouTube uploads (Shorts + videos) to Pinterest and Facebook via Zernio.
 
 Standard library only. Runs from .github/workflows/youtube-to-pinterest.yml.
 
-For each upload in the channel's public RSS feed that is newer than MAX_AGE_HOURS
-and not pinned yet, it creates one Pinterest pin: the YouTube thumbnail, the video
-title, and a link back to the video. Duplicates are prevented with Zernio's
-externalId ("yt-<videoId>"), so no state file is needed.
+For each upload in the channel's public RSS feed that is newer than MAX_AGE_HOURS:
+- Pinterest: one pin with the YouTube thumbnail, the title and a link to the video.
+- Facebook: one Page post with the caption and the YouTube link (Facebook shows the
+  video preview card).
+Duplicates are prevented with Zernio's externalId ("pin-<videoId>" / "fb-<videoId>"),
+so no state file is needed. Either platform is skipped if it isn't connected.
 
 Env:
   ZERNIO_PINTEREST_KEY   (required) API key of the Zernio account that has Pinterest connected
   YT_CHANNEL_ID          YouTube channel id (default: Galaxy Of Games AR)
   PINTEREST_BOARD_NAME   board to pin to, case-insensitive (default: MINECRAFT)
   PINTEREST_ACCOUNT_ID   optional; otherwise the first Pinterest account in that Zernio account
+  FACEBOOK_ACCOUNT_ID    optional; otherwise the first Facebook account in that Zernio account
+  PLATFORMS              comma list of targets (default: pinterest,facebook)
   MAX_AGE_HOURS          only pin uploads newer than this (default: 72)
   MAX_PINS_PER_RUN       safety cap per run (default: 4)
   DRY_RUN=1              print what would be pinned, post nothing
@@ -30,7 +34,9 @@ API = "https://zernio.com/api/v1"
 KEY = os.environ.get("ZERNIO_PINTEREST_KEY", "").strip()
 CHANNEL_ID = os.environ.get("YT_CHANNEL_ID", "UCppjXBahPLC3G_5ZcP6t0RA")
 BOARD_NAME = os.environ.get("PINTEREST_BOARD_NAME", "MINECRAFT").strip().lower()
-ACCOUNT_ID = os.environ.get("PINTEREST_ACCOUNT_ID", "").strip()
+PIN_ACCOUNT = os.environ.get("PINTEREST_ACCOUNT_ID", "").strip()
+FB_ACCOUNT = os.environ.get("FACEBOOK_ACCOUNT_ID", "").strip()
+PLATFORMS = {x.strip() for x in os.environ.get("PLATFORMS", "pinterest,facebook").split(",") if x.strip()}
 MAX_AGE = timedelta(hours=float(os.environ.get("MAX_AGE_HOURS", "72")))
 MAX_PINS = int(os.environ.get("MAX_PINS_PER_RUN", "4"))
 DRY_RUN = os.environ.get("DRY_RUN", "") == "1"
@@ -118,37 +124,74 @@ def pin_text(item, short):
     return text[:480]
 
 
-def pick_account_and_board():
-    global ACCOUNT_ID
-    if not ACCOUNT_ID:
+def fb_text(item, short, link):
+    hashtags = [w for w in item["desc"].split() if w.startswith("#")][:5]
+    kind = "New Short" if short else "New video"
+    text = f"{kind}: {item['title']}\n\n▶️ Watch it here: {link}\n\n{' '.join(hashtags or ['#minecraft', '#gaming'])}"
+    return text[:1500]
+
+
+def find_accounts():
+    """Return {platform: accountId} for the wanted platforms that are connected."""
+    found = {}
+    if "pinterest" in PLATFORMS and PIN_ACCOUNT:
+        found["pinterest"] = PIN_ACCOUNT
+    if "facebook" in PLATFORMS and FB_ACCOUNT:
+        found["facebook"] = FB_ACCOUNT
+    if PLATFORMS - set(found):
         status, data = zernio("GET", "/accounts")
         if status != 200:
             sys.exit(f"Zernio /accounts failed: HTTP {status} {data}")
-        accts = [a for a in data.get("accounts", []) if a.get("platform") == "pinterest"]
-        if not accts:
-            sys.exit("No Pinterest account is connected in this Zernio account.")
-        ACCOUNT_ID = accts[0]["_id"]
-        print(f"Pinterest account: {accts[0].get('username')} ({ACCOUNT_ID})")
-    status, data = zernio("GET", f"/accounts/{ACCOUNT_ID}/pinterest-boards")
+        for a in data.get("accounts", []):
+            plat = a.get("platform")
+            if plat in PLATFORMS and plat not in found and a.get("isActive", True):
+                found[plat] = a["_id"]
+                print(f"{plat} account: {a.get('username') or a.get('displayName')} ({a['_id']})")
+    for plat in sorted(PLATFORMS - set(found)):
+        print(f"NOTE: no {plat} account in this Zernio account; skipping {plat}.")
+    if not found:
+        sys.exit("Neither Pinterest nor Facebook is connected in this Zernio account.")
+    return found
+
+
+def find_board(account_id):
+    status, data = zernio("GET", f"/accounts/{account_id}/pinterest-boards")
     if status != 200:
-        sys.exit(f"Could not list Pinterest boards: HTTP {status} {data}")
+        print(f"Could not list Pinterest boards: HTTP {status} {data}; skipping Pinterest.")
+        return None
     boards = data.get("boards", [])
     match = [b for b in boards if b.get("name", "").strip().lower() == BOARD_NAME]
     if not match:
         names = ", ".join(b.get("name", "?") for b in boards) or "none"
-        sys.exit(f"Board '{BOARD_NAME}' not found. Boards Zernio can see: {names}")
+        print(f"Board '{BOARD_NAME}' not found (boards Zernio can see: {names}); skipping Pinterest.")
+        return None
     print(f"Board: {match[0]['name']} ({match[0]['id']})")
     return match[0]["id"]
 
 
-def already_pinned(vid):
-    status, data = zernio("GET", f"/posts?externalId=yt-{vid}&limit=5&view=summary")
+def already_posted(ext_id):
+    status, data = zernio("GET", f"/posts?externalId={ext_id}&limit=5&view=summary")
     if status != 200:
-        # When in doubt, don't post: a duplicate pin is worse than a late one.
-        print(f"  could not check duplicates for {vid} (HTTP {status}); skipping this run")
+        # When in doubt, don't post: a duplicate is worse than a late post.
+        print(f"  could not check duplicates for {ext_id} (HTTP {status}); skipping this run")
         return True
     live = [p for p in data.get("posts", []) if p.get("status") not in ("failed", "cancelled")]
     return bool(live)
+
+
+def send(body, label):
+    if DRY_RUN:
+        print(f"  [dry run] {label}:")
+        print(json.dumps(body, indent=2))
+        return True
+    status, data = zernio("POST", "/posts", body)
+    if status >= 300:
+        print(f"  {label} FAILED: HTTP {status} {json.dumps(data)[:400]}")
+        return False
+    plat = (data.get("post", {}).get("platforms") or [{}])[0]
+    print(f"  {label} ok: {plat.get('status')} {plat.get('platformPostUrl') or ''}")
+    time.sleep(5)
+    return True
 
 
 def main():
@@ -160,42 +203,46 @@ def main():
     print(f"{len(items)} upload(s) in the last {MAX_AGE}")
     if not items:
         return
-    board_id = pick_account_and_board()
-    pinned = 0
+    accounts = find_accounts()
+    board_id = find_board(accounts["pinterest"]) if "pinterest" in accounts else None
+    if board_id is None:
+        accounts.pop("pinterest", None)
+    if not accounts:
+        sys.exit("Nothing to post to.")
+    done = 0
     for item in items:
-        if pinned >= MAX_PINS:
-            print("Reached MAX_PINS_PER_RUN; the rest will be pinned next run.")
+        if done >= MAX_PINS:
+            print("Reached MAX_PINS_PER_RUN; the rest will be shared next run.")
             break
         vid = item["id"]
-        if already_pinned(vid):
-            print(f"- skip {vid} (already pinned)")
+        todo = [p for p in accounts if not already_posted(f"{'pin' if p == 'pinterest' else 'fb'}-{vid}")]
+        if not todo:
+            print(f"- skip {vid} (already shared)")
             continue
         short = is_short(vid)
         link = f"https://www.youtube.com/shorts/{vid}" if short else f"https://www.youtube.com/watch?v={vid}"
-        body = {
-            "content": pin_text(item, short),
-            "mediaItems": [{"type": "image", "url": thumbnail(vid)}],
-            "platforms": [{
-                "platform": "pinterest",
-                "accountId": ACCOUNT_ID,
-                "platformSpecificData": {"title": item["title"][:100], "boardId": board_id, "link": link},
-            }],
-            "publishNow": True,
-            "externalId": f"yt-{vid}",
-        }
-        print(f"- pin {'Short' if short else 'video'} {vid}: {item['title']}")
-        if DRY_RUN:
-            print(json.dumps(body, indent=2))
-            continue
-        status, data = zernio("POST", "/posts", body)
-        if status >= 300:
-            print(f"  FAILED: HTTP {status} {json.dumps(data)[:400]}")
-            continue
-        plat = (data.get("post", {}).get("platforms") or [{}])[0]
-        print(f"  ok: {plat.get('status')} {plat.get('platformPostUrl') or ''}")
-        pinned += 1
-        time.sleep(5)
-    print(f"Done: {pinned} pin(s) created.")
+        print(f"- {'Short' if short else 'video'} {vid}: {item['title']}")
+        if "pinterest" in todo:
+            send({
+                "content": pin_text(item, short),
+                "mediaItems": [{"type": "image", "url": thumbnail(vid)}],
+                "platforms": [{
+                    "platform": "pinterest",
+                    "accountId": accounts["pinterest"],
+                    "platformSpecificData": {"title": item["title"][:100], "boardId": board_id, "link": link},
+                }],
+                "publishNow": True,
+                "externalId": f"pin-{vid}",
+            }, "Pinterest")
+        if "facebook" in todo:
+            send({
+                "content": fb_text(item, short, link),
+                "platforms": [{"platform": "facebook", "accountId": accounts["facebook"]}],
+                "publishNow": True,
+                "externalId": f"fb-{vid}",
+            }, "Facebook")
+        done += 1
+    print(f"Done: {done} upload(s) shared.")
 
 
 if __name__ == "__main__":
