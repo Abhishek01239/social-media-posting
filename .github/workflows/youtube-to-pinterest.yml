@@ -1,0 +1,27 @@
+name: YouTube to Pinterest + Facebook (Galaxy Of Games AR)
+on:
+  schedule:
+    - cron: "17 */3 * * *"   # every 3 hours
+  workflow_dispatch: {}      # manual Run button
+
+concurrency:
+  group: youtube-to-pinterest
+  cancel-in-progress: false
+
+jobs:
+  pin:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      ZERNIO_PINTEREST_KEY: ${{ secrets.ZERNIO_API_KEY }}
+      YT_CHANNEL_ID: UCppjXBahPLC3G_5ZcP6t0RA
+      PINTEREST_BOARD_NAME: MINECRAFT
+      PLATFORMS: pinterest,facebook
+      MAX_AGE_HOURS: "72"
+      MAX_PINS_PER_RUN: "4"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: python scripts/youtube_to_pinterest.py

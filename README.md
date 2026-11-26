@@ -28,3 +28,14 @@ Cloud name and the Zernio account IDs are already hardcoded in the workflow env.
 2. Actions > Daily product posts > Run workflow > watch it go green.
 3. Verify the post on Bluesky/Pinterest, and check Zernio's failed-posts list (Zernio can return an id yet the post can still fail if the caption is over the limit).
 4. After the first green run, pause the three Littlebird routines so nothing double-posts.
+
+## YouTube to Pinterest + Facebook (Galaxy Of Games AR)
+`.github/workflows/youtube-to-pinterest.yml` runs every 3 hours (plus a manual Run button). It reads the Galaxy Of Games AR YouTube RSS feed and, for every new Short and video (last 72 h):
+- **Pinterest:** pins it to the **MINECRAFT** board (YouTube thumbnail + title + link back to the video).
+- **Facebook:** posts it on the connected Facebook Page (caption + YouTube link, which Facebook shows as a video preview card).
+
+Duplicates are blocked per platform with Zernio's `externalId` (`pin-<videoId>`, `fb-<videoId>`). A platform that isn't connected is skipped. Standard-library Python only (`scripts/youtube_to_pinterest.py`).
+
+It reads the key from the repo secret **ZERNIO_API_KEY**, which now holds the API key of the Zernio account with the Minecraft Pinterest and Facebook Page connected. Note: the SmartGearPicks workflow above reads the same secret with its own hardcoded account IDs, so it will fail unless those accounts are in this Zernio account too.
+
+Change the board, channel, platforms (`PLATFORMS`), age window or uploads per run in the workflow `env`. Test without posting by running the script locally with `DRY_RUN=1`.
