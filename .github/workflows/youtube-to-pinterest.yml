@@ -14,6 +14,8 @@ jobs:
     timeout-minutes: 10
     env:
       ZERNIO_PINTEREST_KEY: ${{ secrets.ZERNIO_API_KEY }}
+      ZERNIO_MAIN_KEY: ${{ secrets.ZERNIO_MAIN_KEY }}
+      FACEBOOK_ACCOUNT_ID: 6b087a8859ca59669b3a2c5a   # Facebook Page "mineWolrd"
       YT_CHANNEL_ID: UCppjXBahPLC3G_5ZcP6t0RA
       PINTEREST_BOARD_NAME: MINECRAFT
       PLATFORMS: pinterest,facebook
