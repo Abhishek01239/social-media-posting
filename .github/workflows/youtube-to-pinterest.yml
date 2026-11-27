@@ -1,4 +1,4 @@
-name: YouTube to Pinterest + Facebook (Galaxy Of Games AR)
+name: YouTube to Pinterest + Facebook + Instagram (Galaxy Of Games AR)
 on:
   schedule:
     - cron: "17 */3 * * *"   # every 3 hours
@@ -18,7 +18,9 @@ jobs:
       FACEBOOK_ACCOUNT_ID: 6b087a8859ca59669b3a2c5a   # Facebook Page "mineWolrd"
       YT_CHANNEL_ID: UCppjXBahPLC3G_5ZcP6t0RA
       PINTEREST_BOARD_NAME: MINECRAFT
-      PLATFORMS: pinterest,facebook
+      PLATFORMS: pinterest,facebook,instagram
+      # ZERNIO_INSTA_KEY: only needed if the Instagram accounts are in a different Zernio account
+      ZERNIO_INSTA_KEY: ${{ secrets.ZERNIO_INSTA_KEY }}
       MAX_AGE_HOURS: "72"
       MAX_PINS_PER_RUN: "4"
     steps:
