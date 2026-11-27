@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Share new Galaxy Of Games AR YouTube uploads (Shorts + videos) to Pinterest and Facebook via Zernio.
+"""Share new Galaxy Of Games AR YouTube uploads (Shorts + videos) to Pinterest, Facebook and Instagram via Zernio.
 
 Standard library only. Runs from .github/workflows/youtube-to-pinterest.yml.
 
@@ -8,6 +8,8 @@ For each upload in the channel's public RSS feed that is newer than MAX_AGE_HOUR
 - Facebook: the real video. The original MP4 is looked up in the MAIN Zernio account
   (the one that uploads to YouTube) and posted as a Reel (Shorts) or a feed video
   (long videos). Falls back to a caption + YouTube link post if the file isn't found.
+- Instagram (every Instagram account connected in that Zernio account): Shorts as Reels
+  (the real MP4), long videos as a thumbnail image post with the YouTube link in the caption.
 Duplicates are prevented with Zernio's externalId ("pin-<videoId>" / "fb-<videoId>"),
 so no state file is needed. Either platform is skipped if it isn't connected.
 
@@ -18,6 +20,9 @@ Env:
   PINTEREST_ACCOUNT_ID   optional; otherwise the first Pinterest account in that Zernio account
   FACEBOOK_ACCOUNT_ID    Facebook Page to post to (otherwise the first Facebook account in that Zernio account)
   ZERNIO_MAIN_KEY        API key of the main Zernio account (read-only use: finds the original MP4)
+  ZERNIO_INSTA_KEY       optional: key of a different Zernio account that holds the Instagram accounts
+                         (default: the same account as ZERNIO_PINTEREST_KEY)
+  INSTAGRAM_ACCOUNT_IDS  optional comma list to limit which Instagram accounts get posts
   YT_ZERNIO_ACCOUNT_ID   that account's YouTube account id (default: Galaxy Of Games AR)
   PLATFORMS              comma list of targets (default: pinterest,facebook)
   MAX_AGE_HOURS          only pin uploads newer than this (default: 72)
@@ -41,7 +46,9 @@ CHANNEL_ID = os.environ.get("YT_CHANNEL_ID", "UCppjXBahPLC3G_5ZcP6t0RA")
 BOARD_NAME = os.environ.get("PINTEREST_BOARD_NAME", "MINECRAFT").strip().lower()
 PIN_ACCOUNT = os.environ.get("PINTEREST_ACCOUNT_ID", "").strip()
 FB_ACCOUNT = os.environ.get("FACEBOOK_ACCOUNT_ID", "").strip()
-PLATFORMS = {x.strip() for x in os.environ.get("PLATFORMS", "pinterest,facebook").split(",") if x.strip()}
+PLATFORMS = {x.strip() for x in os.environ.get("PLATFORMS", "pinterest,facebook,instagram").split(",") if x.strip()}
+INSTA_KEY = os.environ.get("ZERNIO_INSTA_KEY", "").strip()
+IG_ONLY = {x.strip() for x in os.environ.get("INSTAGRAM_ACCOUNT_IDS", "").split(",") if x.strip()}
 MAX_AGE = timedelta(hours=float(os.environ.get("MAX_AGE_HOURS", "72")))
 MAX_PINS = int(os.environ.get("MAX_PINS_PER_RUN", "4"))
 DRY_RUN = os.environ.get("DRY_RUN", "") == "1"
@@ -181,24 +188,57 @@ def fb_video_text(item, short):
 def find_accounts():
     """Return {platform: accountId} for the wanted platforms that are connected."""
     found = {}
-    if "pinterest" in PLATFORMS and PIN_ACCOUNT:
+    wanted = PLATFORMS - {"instagram"}
+    if "pinterest" in wanted and PIN_ACCOUNT:
         found["pinterest"] = PIN_ACCOUNT
-    if "facebook" in PLATFORMS and FB_ACCOUNT:
+    if "facebook" in wanted and FB_ACCOUNT:
         found["facebook"] = FB_ACCOUNT
-    if PLATFORMS - set(found):
+    if wanted - set(found):
         status, data = zernio("GET", "/accounts")
         if status != 200:
             sys.exit(f"Zernio /accounts failed: HTTP {status} {data}")
         for a in data.get("accounts", []):
             plat = a.get("platform")
-            if plat in PLATFORMS and plat not in found and a.get("isActive", True):
+            if plat in wanted and plat not in found and a.get("isActive", True):
                 found[plat] = a["_id"]
                 print(f"{plat} account: {a.get('username') or a.get('displayName')} ({a['_id']})")
-    for plat in sorted(PLATFORMS - set(found)):
+    for plat in sorted(wanted - set(found)):
         print(f"NOTE: no {plat} account in this Zernio account; skipping {plat}.")
-    if not found:
-        sys.exit("Neither Pinterest nor Facebook is connected in this Zernio account.")
     return found
+
+
+def find_instagram():
+    """All active Instagram accounts in the Instagram Zernio account: [(id, username)]."""
+    if "instagram" not in PLATFORMS:
+        return []
+    status, data = zernio("GET", "/accounts", key=INSTA_KEY or None)
+    if status != 200:
+        print(f"NOTE: could not list Instagram accounts (HTTP {status}); skipping Instagram.")
+        return []
+    out = []
+    for a in data.get("accounts", []):
+        if a.get("platform") == "instagram" and a.get("isActive", True) and (not IG_ONLY or a["_id"] in IG_ONLY):
+            out.append((a["_id"], a.get("username") or a.get("displayName") or a["_id"]))
+            print(f"instagram account: {out[-1][1]} ({a['_id']})")
+    if not out:
+        print("NOTE: no Instagram account found; skipping Instagram.")
+    return out
+
+
+def ig_text(item, short, link):
+    hashtags = [w for w in item["desc"].split() if w.startswith("#")][:8]
+    first = ""
+    for line in item["desc"].splitlines():
+        line = line.strip()
+        if line and not line.startswith("#"):
+            first = line
+            break
+    head = item["title"] if not first or first == item["title"] else f"{item['title']}\n\n{first}"
+    tail = "▶️ Full Short on YouTube: Galaxy Of Games AR (link in bio)" if short else \
+        f"🎬 NEW full video on YouTube! Search \"{item['title'][:60]}\" or tap the link in bio"
+    tags = " ".join(hashtags or ["#minecraft", "#gaming"])
+    extra = " #reels #minecraftreels" if short else " #youtube"
+    return f"{head}\n\n{tail}\n{link}\n\n{tags}{extra}"[:2100]
 
 
 def find_board(account_id):
@@ -216,8 +256,8 @@ def find_board(account_id):
     return match[0]["id"]
 
 
-def already_posted(ext_id):
-    status, data = zernio("GET", f"/posts?externalId={ext_id}&limit=5&view=summary")
+def already_posted(ext_id, key=None):
+    status, data = zernio("GET", f"/posts?externalId={ext_id}&limit=5&view=summary", key=key)
     if status != 200:
         # When in doubt, don't post: a duplicate is worse than a late post.
         print(f"  could not check duplicates for {ext_id} (HTTP {status}); skipping this run")
@@ -226,12 +266,12 @@ def already_posted(ext_id):
     return bool(live)
 
 
-def send(body, label):
+def send(body, label, key=None):
     if DRY_RUN:
         print(f"  [dry run] {label}:")
         print(json.dumps(body, indent=2))
         return True
-    status, data = zernio("POST", "/posts", body)
+    status, data = zernio("POST", "/posts", body, key=key)
     if status >= 300:
         print(f"  {label} FAILED: HTTP {status} {json.dumps(data)[:400]}")
         return False
@@ -254,8 +294,9 @@ def main():
     board_id = find_board(accounts["pinterest"]) if "pinterest" in accounts else None
     if board_id is None:
         accounts.pop("pinterest", None)
-    if not accounts:
-        sys.exit("Nothing to post to.")
+    igs = find_instagram()
+    if not accounts and not igs:
+        sys.exit("Nothing to post to: no Pinterest board, Facebook Page or Instagram account found.")
     done = 0
     for item in items:
         if done >= MAX_PINS:
@@ -263,7 +304,8 @@ def main():
             break
         vid = item["id"]
         todo = [p for p in accounts if not already_posted(f"{'pin' if p == 'pinterest' else 'fb'}-{vid}")]
-        if not todo:
+        ig_todo = [(i, u) for i, u in igs if not already_posted(f"ig-{i}-{vid}", key=INSTA_KEY or None)]
+        if not todo and not ig_todo:
             print(f"- skip {vid} (already shared)")
             continue
         short = is_short(vid)
@@ -300,6 +342,28 @@ def main():
                     "publishNow": True,
                     "externalId": f"fb-{vid}",
                 }, "Facebook link")
+        for ig_id, ig_user in ig_todo:
+            if short:
+                mp4 = original_videos().get(vid)
+                if not mp4:
+                    print(f"  Instagram @{ig_user}: no video file found for this Short; skipping (will retry next run)")
+                    continue
+                send({
+                    "content": ig_text(item, True, link),
+                    "mediaItems": [{"type": "video", "url": mp4, "instagramThumbnail": thumbnail(vid)}],
+                    "platforms": [{"platform": "instagram", "accountId": ig_id}],
+                    "publishNow": True,
+                    "externalId": f"ig-{ig_id}-{vid}",
+                }, f"Instagram Reel @{ig_user}", key=INSTA_KEY or None)
+            else:
+                send({
+                    "content": ig_text(item, False, link),
+                    "mediaItems": [{"type": "image", "url": thumbnail(vid),
+                                    "altText": f"Thumbnail of the Minecraft video: {item['title'][:120]}"}],
+                    "platforms": [{"platform": "instagram", "accountId": ig_id}],
+                    "publishNow": True,
+                    "externalId": f"ig-{ig_id}-{vid}",
+                }, f"Instagram thumbnail post @{ig_user}", key=INSTA_KEY or None)
         done += 1
     print(f"Done: {done} upload(s) shared.")
 
