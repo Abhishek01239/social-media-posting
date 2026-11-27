@@ -5,8 +5,9 @@ Standard library only. Runs from .github/workflows/youtube-to-pinterest.yml.
 
 For each upload in the channel's public RSS feed that is newer than MAX_AGE_HOURS:
 - Pinterest: one pin with the YouTube thumbnail, the title and a link to the video.
-- Facebook: one Page post with the caption and the YouTube link (Facebook shows the
-  video preview card).
+- Facebook: the real video. The original MP4 is looked up in the MAIN Zernio account
+  (the one that uploads to YouTube) and posted as a Reel (Shorts) or a feed video
+  (long videos). Falls back to a caption + YouTube link post if the file isn't found.
 Duplicates are prevented with Zernio's externalId ("pin-<videoId>" / "fb-<videoId>"),
 so no state file is needed. Either platform is skipped if it isn't connected.
 
@@ -15,7 +16,9 @@ Env:
   YT_CHANNEL_ID          YouTube channel id (default: Galaxy Of Games AR)
   PINTEREST_BOARD_NAME   board to pin to, case-insensitive (default: MINECRAFT)
   PINTEREST_ACCOUNT_ID   optional; otherwise the first Pinterest account in that Zernio account
-  FACEBOOK_ACCOUNT_ID    optional; otherwise the first Facebook account in that Zernio account
+  FACEBOOK_ACCOUNT_ID    Facebook Page to post to (otherwise the first Facebook account in that Zernio account)
+  ZERNIO_MAIN_KEY        API key of the main Zernio account (read-only use: finds the original MP4)
+  YT_ZERNIO_ACCOUNT_ID   that account's YouTube account id (default: Galaxy Of Games AR)
   PLATFORMS              comma list of targets (default: pinterest,facebook)
   MAX_AGE_HOURS          only pin uploads newer than this (default: 72)
   MAX_PINS_PER_RUN       safety cap per run (default: 4)
@@ -32,6 +35,8 @@ from datetime import datetime, timedelta, timezone
 
 API = "https://zernio.com/api/v1"
 KEY = os.environ.get("ZERNIO_PINTEREST_KEY", "").strip()
+MAIN_KEY = os.environ.get("ZERNIO_MAIN_KEY", "").strip()
+YT_ACCOUNT = os.environ.get("YT_ZERNIO_ACCOUNT_ID", "6af9bd4fb348dd18fdb86d05")
 CHANNEL_ID = os.environ.get("YT_CHANNEL_ID", "UCppjXBahPLC3G_5ZcP6t0RA")
 BOARD_NAME = os.environ.get("PINTEREST_BOARD_NAME", "MINECRAFT").strip().lower()
 PIN_ACCOUNT = os.environ.get("PINTEREST_ACCOUNT_ID", "").strip()
@@ -70,8 +75,8 @@ class NoRedirect(urllib.request.HTTPRedirectHandler):
         return None
 
 
-def zernio(method, path, body=None):
-    status, raw = http(method, API + path, body, {"Authorization": f"Bearer {KEY}"})
+def zernio(method, path, body=None, key=None):
+    status, raw = http(method, API + path, body, {"Authorization": f"Bearer {key or KEY}"})
     try:
         data = json.loads(raw or b"{}")
     except ValueError:
@@ -129,6 +134,48 @@ def fb_text(item, short, link):
     kind = "New Short" if short else "New video"
     text = f"{kind}: {item['title']}\n\n▶️ Watch it here: {link}\n\n{' '.join(hashtags or ['#minecraft', '#gaming'])}"
     return text[:1500]
+
+
+_VIDEO_CACHE = None
+
+
+def original_videos():
+    """{youtubeVideoId: mp4 url} from the main Zernio account's YouTube posts (read only)."""
+    global _VIDEO_CACHE
+    if _VIDEO_CACHE is not None:
+        return _VIDEO_CACHE
+    _VIDEO_CACHE = {}
+    if not MAIN_KEY:
+        print("NOTE: ZERNIO_MAIN_KEY not set; Facebook gets link posts instead of videos.")
+        return _VIDEO_CACHE
+    status, data = zernio("GET", f"/posts?accountId={YT_ACCOUNT}&platform=youtube&status=published&limit=40&view=full",
+                          key=MAIN_KEY)
+    if status != 200:
+        print(f"NOTE: could not read the main Zernio account (HTTP {status}); using link posts.")
+        return _VIDEO_CACHE
+    for post in data.get("posts", []):
+        vids = [m.get("url") for m in post.get("mediaItems", []) if m.get("type") == "video" and m.get("url")]
+        if not vids:
+            continue
+        for pl in post.get("platforms", []):
+            acc = pl.get("accountId")
+            acc = acc.get("_id") if isinstance(acc, dict) else acc
+            if pl.get("platformPostId") and acc == YT_ACCOUNT:
+                _VIDEO_CACHE[pl["platformPostId"]] = vids[0]
+    print(f"Found {len(_VIDEO_CACHE)} original video file(s) in the main Zernio account.")
+    return _VIDEO_CACHE
+
+
+def fb_video_text(item, short):
+    hashtags = [w for w in item["desc"].split() if w.startswith("#")][:6]
+    first = ""
+    for line in item["desc"].splitlines():
+        line = line.strip()
+        if line and not line.startswith("#"):
+            first = line
+            break
+    body = f"{item['title']}\n\n{first}".strip() if first and first != item["title"] else item["title"]
+    return f"{body}\n\n{' '.join(hashtags or ['#minecraft', '#gaming'])}"[:1500]
 
 
 def find_accounts():
@@ -235,12 +282,24 @@ def main():
                 "externalId": f"pin-{vid}",
             }, "Pinterest")
         if "facebook" in todo:
-            send({
-                "content": fb_text(item, short, link),
-                "platforms": [{"platform": "facebook", "accountId": accounts["facebook"]}],
-                "publishNow": True,
-                "externalId": f"fb-{vid}",
-            }, "Facebook")
+            mp4 = original_videos().get(vid)
+            if mp4:
+                psd = {"contentType": "reel", "title": item["title"][:100]} if short else {}
+                ok = send({
+                    "content": fb_video_text(item, short),
+                    "mediaItems": [{"type": "video", "url": mp4}],
+                    "platforms": [{"platform": "facebook", "accountId": accounts["facebook"],
+                                   "platformSpecificData": psd}],
+                    "publishNow": True,
+                    "externalId": f"fb-{vid}",
+                }, "Facebook " + ("Reel" if short else "video"))
+            if not mp4 or not ok:
+                send({
+                    "content": fb_text(item, short, link),
+                    "platforms": [{"platform": "facebook", "accountId": accounts["facebook"]}],
+                    "publishNow": True,
+                    "externalId": f"fb-{vid}",
+                }, "Facebook link")
         done += 1
     print(f"Done: {done} upload(s) shared.")
 
