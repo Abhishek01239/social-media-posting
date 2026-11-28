@@ -22,7 +22,7 @@ jobs:
       # ZERNIO_INSTA_KEY: only needed if the Instagram accounts are in a different Zernio account
       ZERNIO_INSTA_KEY: ${{ secrets.ZERNIO_INSTA_KEY }}
       MAX_AGE_HOURS: "72"
-      MAX_PINS_PER_RUN: "4"
+      MAX_PINS_PER_RUN: "1"   # one upload (Short or video) per run, shared to every platform
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
